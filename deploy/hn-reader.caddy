@@ -1,0 +1,4 @@
+hn-reader.sanvir.net {
+	import app_defaults
+	reverse_proxy hn-reader:4173
+}

@@ -1,0 +1,33 @@
+# Production stack for hn-reader. GitHub Actions copies this to
+# /opt/apps/hn-reader on the VPS and writes IMAGE_TAG into .env next to it.
+name: hn-reader
+
+services:
+  app:
+    image: ghcr.io/sanvirmanilal/hn-reader:${IMAGE_TAG:-latest}
+    container_name: hn-reader
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: "4173"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:4173/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    networks:
+      edge:
+        aliases:
+          - hn-reader
+
+networks:
+  edge:
+    external: true
