@@ -22,9 +22,12 @@
 
 import /etc/caddy/sites/*.caddy
 
-# Any other hostname (e.g. a subdomain with no app yet) gets a plain 404
-# instead of a TLS error at Cloudflare.
-https:// {
+# Any other sanvir.net subdomain (e.g. one with no app yet) gets a plain 404
+# instead of a TLS error at Cloudflare. This must name the hosts: a bare
+# `https://` block with a manual certificate becomes the TLS policy for every
+# SNI and would hand the origin certificate to sites with their own Let's
+# Encrypt certificate (such as the Kindle dashboard's sslip.io host).
+*.sanvir.net, sanvir.net {
 	import cloudflare_origin
 	respond "Not found" 404
 }
