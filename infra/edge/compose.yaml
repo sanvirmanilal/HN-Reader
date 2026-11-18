@@ -14,6 +14,8 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./sites:/etc/caddy/sites:ro
       - ./certs:/etc/caddy/certs:ro
+      # kindle-dash renders dash.png here every minute (site: sites/kindle-dash.caddy).
+      - /var/lib/kindle-dash:/var/lib/kindle-dash:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:

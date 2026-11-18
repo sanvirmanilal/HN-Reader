@@ -72,8 +72,9 @@ The script:
   (Nginx, Apache, Caddy, Traefik, HAProxy, lighttpd, or a container publishing
   80/443) **asks** before stopping, disabling or uninstalling it;
 - installs Docker Engine and the Compose plugin if missing;
-- creates a `deploy` user in the `docker` group with your key (note that
-  Docker access is effectively root access on the VPS);
+- creates an `apps` user in the `docker` group with your key (note that
+  Docker access is effectively root access on the VPS). The existing `deploy`
+  user belongs to kindle-dash and is left alone;
 - creates `/opt/edge`, `/opt/apps`, and the `edge` Docker network;
 - opens SSH, 80 and 443 in `ufw` if ufw is installed.
 
@@ -92,7 +93,33 @@ chmod 600 /opt/edge/certs/* && cd /opt/edge && docker compose up -d
 ```
 
 The script is safe to re-run; re-running it also starts the proxy once the
-certificate files exist.
+certificate files exist and ports 80/443 are free.
+
+### 3b. Move the Kindle dashboard onto the edge proxy (this VPS only)
+
+Before this change the system Caddy (`caddy.service`) served the Kindle
+dashboard at `2-31-153-195.sslip.io` and held ports 80/443, so the edge proxy
+cannot start until it is retired. The edge container mounts
+`/var/lib/kindle-dash` read-only, and kindle-dash's deploy (from
+sanvirmanilal/kindle-dash#6) installs its site as
+`/opt/edge/sites/kindle-dash.caddy` once `/opt/edge` exists. As root:
+
+1. Install the updated `deploy/kindle-dash-deploy` from kindle-dash as
+   `/usr/local/sbin/kindle-dash-deploy`, then run a kindle-dash deploy
+   (**Actions → CI / Deploy → Run workflow** on `main`) so the site file is
+   written.
+2. Copy the existing Let's Encrypt certificate so there is no ACME gap, then
+   swap the proxies:
+
+   ```bash
+   cd /opt/edge && docker compose create
+   docker run --rm -v edge_caddy_data:/data -v /var/lib/caddy/.local/share/caddy:/src:ro alpine cp -a /src/. /data/caddy/
+   systemctl disable --now caddy && docker compose up -d
+   ```
+
+Roll back with `docker compose down && systemctl enable --now caddy`. The
+`caddy` package stays installed because kindle-dash's deploy uses
+`caddy validate`.
 
 ### 4. GitHub secrets
 
@@ -102,7 +129,7 @@ secret**:
 | Secret            | Value                                                                    |
 | ----------------- | ------------------------------------------------------------------------ |
 | `VPS_HOST`        | VPS IP address (not the Cloudflare-proxied name; SSH can't go through it) |
-| `VPS_USER`        | `deploy`                                                                 |
+| `VPS_USER`        | `apps`                                                                   |
 | `VPS_SSH_KEY`     | contents of the **private** key `~/.ssh/sanvir-vps-deploy`               |
 | `VPS_KNOWN_HOSTS` | output of `ssh-keyscan -p 22 YOUR_VPS_IP` (run from your computer)       |
 | `VPS_PORT`        | optional; only if SSH is not on port 22                                  |
@@ -120,7 +147,7 @@ Merge to `main` (or run **Actions → Deploy → Run workflow**). The workflow:
 
 ## Day-to-day
 
-Logs and status, as `deploy` on the VPS:
+Logs and status, as `apps` on the VPS:
 
 ```bash
 cd /opt/apps/hn-reader && docker compose ps && docker compose logs -f
@@ -163,7 +190,7 @@ The next push to `main` deploys the latest commit again.
 
 3. Copy this repo's `.github/workflows/deploy.yml` and `deploy/remote-deploy.sh`
    into the new repo, replace `hn-reader` with the app's name, and add the
-   same four secrets (the same `deploy` key can be reused).
+   same four secrets (the same `apps` key can be reused).
 
 With the wildcard DNS record and wildcard origin certificate, there is nothing
 to change in Cloudflare or on the VPS by hand.

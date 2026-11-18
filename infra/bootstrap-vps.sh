@@ -7,7 +7,9 @@
 # It is safe to re-run. It asks before stopping or removing anything.
 set -euo pipefail
 
-DEPLOY_USER=deploy
+# Not "deploy": that user already exists for kindle-dash, with a key restricted
+# to a single command, and must not gain Docker (root-equivalent) access.
+DEPLOY_USER=apps
 EDGE_DIR=/opt/edge
 APPS_DIR=/opt/apps
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
@@ -84,7 +86,14 @@ chown "$DEPLOY_USER:$DEPLOY_USER" "$APPS_DIR"
 install -m 644 "$SCRIPT_DIR/edge/Caddyfile" "$SCRIPT_DIR/edge/compose.yaml" "$EDGE_DIR/"
 install -m 644 "$SCRIPT_DIR/edge/sites/_example.caddy.txt" "$EDGE_DIR/sites/"
 
-if [ -s "$EDGE_DIR/certs/origin.pem" ] && [ -s "$EDGE_DIR/certs/origin-key.pem" ]; then
+port_busy() {
+  ss -ltnH '( sport = :80 or sport = :443 )' | grep -q . &&
+    ! docker ps --format '{{.Names}}' | grep -qx edge-caddy
+}
+if port_busy; then
+  warn "Ports 80/443 are still taken by something other than edge-caddy; not starting the proxy."
+  warn "Stop that server (see DEPLOY.md for moving the Kindle dashboard), then: cd $EDGE_DIR && docker compose up -d"
+elif [ -s "$EDGE_DIR/certs/origin.pem" ] && [ -s "$EDGE_DIR/certs/origin-key.pem" ]; then
   chmod 600 "$EDGE_DIR/certs/"*
   (cd "$EDGE_DIR" && docker compose up -d)
   say "Edge proxy running."
