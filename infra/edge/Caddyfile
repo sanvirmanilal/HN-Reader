@@ -27,7 +27,8 @@ import /etc/caddy/sites/*.caddy
 # `https://` block with a manual certificate becomes the TLS policy for every
 # SNI and would hand the origin certificate to sites with their own Let's
 # Encrypt certificate (such as the Kindle dashboard's sslip.io host).
-*.sanvir.net, sanvir.net {
+# The apex is left out because sanvir.net is served by its own site file.
+*.sanvir.net {
 	import cloudflare_origin
 	respond "Not found" 404
 }

@@ -196,9 +196,18 @@ With the wildcard DNS record and wildcard origin certificate, there is nothing
 to change in Cloudflare or on the VPS by hand.
 
 To change the shared proxy itself, edit `infra/edge/` here, copy the files to
-`/opt/edge` and run `docker compose up -d` there (or
-`docker exec edge-caddy caddy reload --config /etc/caddy/Caddyfile` for a
-Caddyfile-only change). If you add many apps, consider moving `infra/` into
+`/opt/edge` and run `docker compose up -d` there. For a Caddyfile-only change,
+validate and then **restart** the container:
+
+```bash
+cd /opt/edge && docker compose run --rm --no-deps caddy caddy validate --config /etc/caddy/Caddyfile && docker restart edge-caddy
+```
+
+`Caddyfile` is bind-mounted as a single file, which pins the file as it was
+when the container started; tools that replace the file (`install`, `cp` to a
+new file, most editors) leave the running container on the old copy, so a
+plain `caddy reload` may not see the change. Files in `sites/` are a directory
+mount and reload normally. If you add many apps, consider moving `infra/` into
 its own repository.
 
 ## Notes
