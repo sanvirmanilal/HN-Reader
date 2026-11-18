@@ -46,3 +46,10 @@ podman kube down pod.yaml
 Direct execution with `node server.js` still listens only on `127.0.0.1:4173`.
 The container image sets `HOST=0.0.0.0` so the pod can reach the app through
 its published port.
+
+## Production deployment
+
+The app is deployed to <https://hn-reader.sanvir.net> by GitHub Actions on
+every push to `main`, behind a shared Caddy reverse proxy on the VPS that can
+host more `*.sanvir.net` apps. See [DEPLOY.md](DEPLOY.md) for the one-time
+Cloudflare, VPS and GitHub setup.

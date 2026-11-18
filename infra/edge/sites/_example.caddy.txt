@@ -1,0 +1,8 @@
+# Template for a new app. Copy to <app>.caddy (the .caddy extension is what
+# gets imported), change the hostname and upstream, then reload Caddy:
+#   docker exec edge-caddy caddy reload --config /etc/caddy/Caddyfile
+#
+# placeholder.sanvir.net {
+# 	import app_defaults
+# 	reverse_proxy placeholder:8080
+# }

@@ -1,0 +1,30 @@
+# Shared reverse proxy ("edge") for every app on this VPS.
+#
+# Each app drops one file into /opt/edge/sites/<app>.caddy and reloads Caddy.
+# TLS uses a Cloudflare Origin CA certificate for *.sanvir.net, so Caddy never
+# requests certificates itself; Cloudflare must proxy the DNS records (orange
+# cloud) with SSL/TLS mode set to "Full (strict)".
+
+(cloudflare_origin) {
+	tls /etc/caddy/certs/origin.pem /etc/caddy/certs/origin-key.pem
+}
+
+# Shared defaults for a proxied app: compression and basic security headers.
+(app_defaults) {
+	import cloudflare_origin
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+}
+
+import /etc/caddy/sites/*.caddy
+
+# Any other hostname (e.g. a subdomain with no app yet) gets a plain 404
+# instead of a TLS error at Cloudflare.
+https:// {
+	import cloudflare_origin
+	respond "Not found" 404
+}

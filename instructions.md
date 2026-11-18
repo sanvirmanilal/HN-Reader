@@ -13,6 +13,10 @@
 - `Caddyfile` — proxies requests to the `app` service on port 4173.
 - `pod.yaml` — Podman Kubernetes pod manifest; publishes port 4173 and mounts the host CA bundle.
 - `README.md` — current Podman/WSL setup and run instructions.
+- `DEPLOY.md` — production deployment to the VPS (Cloudflare, GitHub Actions, shared edge proxy).
+- `.github/workflows/deploy.yml` — builds the image, pushes it to GHCR and deploys over SSH on pushes to `main`.
+- `deploy/` — production Compose file, Caddy site block for `hn-reader.sanvir.net`, and the script the workflow runs on the VPS.
+- `infra/` — one-time VPS bootstrap script and the shared `edge` Caddy proxy used by all apps on the VPS (Cloudflare Origin certificate, `/opt/edge/sites/*.caddy`).
 
 There is no package manifest, build step, frontend framework, or test suite. The server uses Node.js built-in modules and the global `fetch` API; do not assume dependencies need to be installed.
 
@@ -67,7 +71,7 @@ Useful commands: `podman pod ps`, `podman logs hn-reader-hn-reader`, and `podman
 
 ### Compose/Caddy option
 
-`compose.yaml` also defines a Caddy-backed deployment. `docker compose up --build` (or compatible Compose) builds the app and starts the proxy; Caddy exposes ports 80 and 443. Review the Caddy configuration and runtime environment before using this on a public host.
+`compose.yaml` also defines a Caddy-backed deployment. `docker compose up --build` (or compatible Compose) builds the app and starts the proxy; Caddy exposes ports 80 and 443. This is a standalone local option; production uses `deploy/` and `infra/` instead (see `DEPLOY.md`).
 
 ## Working conventions
 

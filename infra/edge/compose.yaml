@@ -1,0 +1,30 @@
+# Shared edge proxy. Lives at /opt/edge on the VPS and owns ports 80/443.
+# Apps join the external "edge" network and are reached by their alias.
+name: edge
+
+services:
+  caddy:
+    image: caddy:2
+    container_name: edge-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./sites:/etc/caddy/sites:ro
+      - ./certs:/etc/caddy/certs:ro
+      # kindle-dash renders dash.png here every minute (site: sites/kindle-dash.caddy).
+      - /var/lib/kindle-dash:/var/lib/kindle-dash:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+
+networks:
+  edge:
+    external: true
+
+volumes:
+  caddy_data:
+  caddy_config:
