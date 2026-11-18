@@ -17,7 +17,8 @@ DEPLOY_PUBKEY=${1:-}
 
 say()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 warn() { printf '\033[33m!! %s\033[0m\n' "$*" >&2; }
-ask()  { local reply; read -r -p "$1 [y/N] " reply </dev/tty; [[ $reply =~ ^[Yy]$ ]]; }
+# Without a terminal (e.g. `ssh host bash script`) every question is answered "no".
+ask()  { local reply=""; { read -r -p "$1 [y/N] " reply </dev/tty; } 2>/dev/null || return 1; [[ $reply =~ ^[Yy]$ ]]; }
 
 [ "$(id -u)" -eq 0 ] || { echo "Run as root (sudo)." >&2; exit 1; }
 command -v apt-get >/dev/null || { echo "This script expects Debian/Ubuntu (apt)." >&2; exit 1; }
