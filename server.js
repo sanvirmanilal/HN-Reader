@@ -175,6 +175,8 @@ function checkSummaryLimits(ip) {
   }
 }
 
+// Summary errors use 503 rather than 502: Cloudflare replaces 502 response
+// bodies with its own page, which would hide the reason from the reader.
 async function askClaude(title, source, text) {
   const truncated = text.length > summaryMaxChars;
   const body = truncated ? text.slice(0, summaryMaxChars) : text;
@@ -200,16 +202,24 @@ async function askClaude(title, source, text) {
         content: `<article title=${JSON.stringify(title)} source=${JSON.stringify(source)}${truncated ? ' note="text cut off after the first part"' : ''}>\n${body}\n</article>`,
       }],
     }),
+  }).catch(error => {
+    console.error('Anthropic API unreachable', error);
+    throw new HttpError(503, `Could not reach the summary service (${error.cause?.code || error.name}).`);
   });
   const data = await response.json().catch(() => null);
   if (!response.ok) {
-    console.error('Anthropic API error', response.status, data?.error?.type, data?.error?.message);
+    const type = data?.error?.type, detail = String(data?.error?.message || '');
+    console.error('Anthropic API error', response.status, type, detail);
     if (response.status === 429 || response.status === 529) throw new HttpError(503, 'The summary service is busy. Try again in a moment.');
-    throw new HttpError(502, 'The summary service returned an error');
+    if (response.status === 401) throw new HttpError(503, 'The summary service rejected this server\'s API key.');
+    if (response.status === 403) throw new HttpError(503, 'This server\'s API key is not allowed to use the summary service.');
+    if (/credit|billing|balance/i.test(detail)) throw new HttpError(503, 'The summary service account is out of credit.');
+    if (response.status === 404) throw new HttpError(503, 'The summary model is not available to this server\'s API account.');
+    throw new HttpError(503, `The summary service returned an error (HTTP ${response.status}${type ? `, ${type}` : ''}).`);
   }
   if (data.stop_reason === 'refusal') throw new HttpError(422, 'This article could not be summarized.');
   const summary = (data.content || []).filter(block => block.type === 'text').map(block => block.text).join('\n').trim();
-  if (!summary) throw new HttpError(502, 'The summary came back empty');
+  if (!summary) throw new HttpError(503, `The summary came back empty (stop reason: ${data.stop_reason}).`);
   return { summary, truncated };
 }
 
@@ -282,7 +292,15 @@ const server = http.createServer(async (req, res) => {
       return send(res, 200, JSON.stringify(await getArticle(story.url)));
     }
     const summary = url.pathname.match(/^\/api\/summary\/(\d{1,12})$/);
-    if (summary) return send(res, 200, JSON.stringify(await getSummary(summary[1], clientIp(req))));
+    if (summary) {
+      try {
+        return send(res, 200, JSON.stringify(await getSummary(summary[1], clientIp(req))));
+      } catch (error) {
+        if (error instanceof HttpError) throw error;
+        // e.g. the article site blocked the fetch; keep the reason visible behind Cloudflare.
+        throw new HttpError(503, `Could not summarize: ${error instanceof Error ? error.message : 'unknown error'}`);
+      }
+    }
     send(res, 404, JSON.stringify({ error: 'Not found' }));
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
