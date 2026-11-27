@@ -43,6 +43,23 @@ To remove the pod:
 podman kube down pod.yaml
 ```
 
+## AI summaries (optional)
+
+The **✦ Summarize** button in the article panel asks Claude Haiku 5.5 for a
+short bullet-point summary. The server makes the call; the API key never
+reaches the browser. Set `ANTHROPIC_API_KEY` to enable it:
+
+```sh
+ANTHROPIC_API_KEY=sk-ant-... node server.js
+```
+
+Without the key the button reports that summaries are not set up. Summaries
+are cached in memory per story (up to 500), each visitor IP may request 10 new
+summaries per 10 minutes, and the whole server makes at most
+`SUMMARY_DAILY_LIMIT` (default 300) new summaries per UTC day. A typical
+summary costs well under a tenth of a cent. Also set a monthly spend limit in
+the Anthropic Console as a final backstop.
+
 Direct execution with `node server.js` still listens only on `127.0.0.1:4173`.
 The container image sets `HOST=0.0.0.0` so the pod can reach the app through
 its published port.

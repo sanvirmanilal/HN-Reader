@@ -10,6 +10,9 @@ services:
     environment:
       HOST: 0.0.0.0
       PORT: "4173"
+      # Written into .env by remote-deploy.sh from the ANTHROPIC_API_KEY
+      # GitHub secret. Empty disables AI summaries.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     read_only: true
     tmpfs:
       - /tmp

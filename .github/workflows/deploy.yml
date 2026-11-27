@@ -91,10 +91,12 @@ jobs:
       - name: Deploy
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           # Short-lived registry login: the token expires when this job ends.
           printf '%s' "$GHCR_TOKEN" | ssh vps "docker login ghcr.io -u '${{ github.actor }}' --password-stdin"
-          ssh vps "bash /opt/apps/hn-reader/remote-deploy.sh '${{ github.sha }}'; rc=\$?; docker logout ghcr.io >/dev/null; exit \$rc"
+          # The API key goes over stdin; an unset secret disables AI summaries.
+          printf '%s' "$ANTHROPIC_API_KEY" | ssh vps "bash /opt/apps/hn-reader/remote-deploy.sh '${{ github.sha }}'; rc=\$?; docker logout ghcr.io >/dev/null; exit \$rc"
 
       - name: Check the public URL
         run: |

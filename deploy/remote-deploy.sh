@@ -1,14 +1,22 @@
 #!/usr/bin/env bash
 # Runs on the VPS (as the deploy user) from GitHub Actions.
 # Usage: remote-deploy.sh <image-tag>
+# The Anthropic API key, if any, arrives on stdin so it never appears in a
+# command line or process list.
 set -euo pipefail
 
 app=hn-reader
 app_dir=/opt/apps/$app
 tag=${1:?image tag required}
+anthropic_key=$(cat)
+case $anthropic_key in
+  *[!A-Za-z0-9_-]*) echo "ANTHROPIC_API_KEY contains unexpected characters" >&2; exit 1 ;;
+esac
 
 cd "$app_dir"
-printf 'IMAGE_TAG=%s\n' "$tag" > .env
+umask 077
+printf 'IMAGE_TAG=%s\nANTHROPIC_API_KEY=%s\n' "$tag" "$anthropic_key" > .env.tmp
+mv .env.tmp .env
 
 docker compose pull
 docker compose up -d --remove-orphans

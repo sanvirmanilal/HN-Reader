@@ -133,6 +133,12 @@ secret**:
 | `VPS_SSH_KEY`     | contents of the **private** key `~/.ssh/sanvir-vps-deploy`               |
 | `VPS_KNOWN_HOSTS` | output of `ssh-keyscan -p 22 YOUR_VPS_IP` (run from your computer)       |
 | `VPS_PORT`        | optional; only if SSH is not on port 22                                  |
+| `ANTHROPIC_API_KEY` | optional; an Anthropic API key for AI summaries (omit to disable them) |
+
+The workflow sends `ANTHROPIC_API_KEY` to the VPS over SSH stdin, and
+`remote-deploy.sh` writes it to `/opt/apps/hn-reader/.env` (mode 600) for the
+container. Set a monthly spend limit for that key's workspace in the
+Anthropic Console.
 
 ### 5. Deploy
 
