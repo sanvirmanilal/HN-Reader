@@ -27,11 +27,13 @@ There is no package manifest, build step, frontend framework, or test suite. The
 - `GET /api/feed?view=top&page=N` fetches 15 stories per page from the Firebase top-stories list. `view=new` uses Algolia's `search_by_date` results (40 per page). Responses have `{ hits, hasMore }`.
 - `GET /api/item/:id` fetches an Algolia item, including its comment tree.
 - `GET /api/article/:id` fetches the story URL and returns `{ html, url }` for the reader. Text posts return HTTP 422 with an explanation.
+- `GET /api/summary/:id` returns `{ summary, truncated }`: the server fetches the article through the same `getArticle()` checks, strips it to text, and asks Claude Haiku 5.5 (`claude-haiku-5-5`, raw `fetch` to the Messages API, no SDK) for 3-5 bullet points. It needs `ANTHROPIC_API_KEY` (503 without it). It accepts only a story ID, never arbitrary text or URLs, so it cannot be used as a general LLM proxy. Results are cached in memory per story; new summaries are limited per client IP (`CF-Connecting-IP`, best effort) and globally per UTC day (`SUMMARY_DAILY_LIMIT`, default 300). The frontend renders the summary with `textContent` only.
 - The frontend extracts readable text from fetched HTML and creates its own DOM nodes; it does not display fetched article HTML directly. Comments are separately sanitized into a small allowed set of elements. The optional Website view loads the original URL in a sandboxed iframe.
 - Browser preferences are stored in `localStorage`: `sidecar-theme`, `sidecar-auto-refresh`, and `sidecar-refresh-interval`.
 
 ## Important implementation constraints
 
+- Keep the Anthropic API key server-side only; never send it to the browser or log it. Keep the summary endpoint's story-ID-only input, cache, and rate limits when changing it.
 - Keep the app dependency-free unless a change explicitly justifies introducing and documenting a package manager/build process.
 - Preserve the existing same-origin API design; do not make browser code call third-party APIs directly without a reason.
 - Treat article URLs and upstream responses as untrusted. `server.js` validates article URLs, rejects non-public IP destinations, limits redirect count, applies timeouts, requires HTML, and caps response size. Preserve and carefully review these protections whenever changing article fetching or redirects. Do not remove DNS/IP checks or allow arbitrary local/private network access.

@@ -130,6 +130,17 @@
     .reader h3 { font-size:21px; line-height:1.3; color:var(--ink); margin:23px 0 10px; }
     .reader blockquote { border-left:3px solid var(--orange); margin:18px 0; padding-left:14px; color:var(--quote); }
     .reader pre { white-space:pre-wrap; font:12px/1.5 ui-monospace,monospace; background:var(--code); padding:12px; border-radius:6px; }
+    .panel-tools { display:flex; align-items:center; gap:8px; }
+    .summarize { border:1px solid var(--button-border); background:transparent; color:var(--green); border-radius:6px; padding:5px 9px; font-size:10px; font-weight:750; cursor:pointer; }
+    .summarize:hover:not(:disabled) { border-color:var(--green); }
+    .summarize:disabled { color:var(--muted); cursor:default; }
+    .summarize:focus-visible { outline:2px solid var(--orange); outline-offset:2px; }
+    .summary { background:var(--soft); border-left:3px solid var(--green); border-radius:0 8px 8px 0; padding:14px 16px; margin:0 0 22px; font:13px/1.6 ui-sans-serif,system-ui,sans-serif; color:var(--body-copy); }
+    .summary-label { text-transform:uppercase; font-weight:800; font-size:10px; color:var(--green); letter-spacing:.17em; margin:0 0 8px; }
+    .summary ul { margin:0; padding-left:18px; }
+    .summary li + li { margin-top:6px; }
+    .summary-note { margin:10px 0 0; font-size:11px; color:var(--muted); }
+    .summary .message { padding:0; background:none; }
     .iframe { width:100%; height:70vh; border:1px solid var(--line); border-radius:7px; background:white; }
     .hint { color:var(--muted); font:12px/1.6 ui-sans-serif,system-ui,sans-serif; }
     .hint a { color:var(--green); }
@@ -206,7 +217,8 @@
           </div>
           <div class="content-grid">
             <section class="panel" aria-label="Article" tabindex="0">
-              <div class="panel-head"><h3>THE ARTICLE</h3><div class="view-switch" role="group" aria-label="Article view"><button id="reader-tab" class="active" aria-pressed="true">Reader</button><button id="site-tab" aria-pressed="false">Website</button></div></div>
+              <div class="panel-head"><h3>THE ARTICLE</h3><div class="panel-tools"><button id="summarize" class="summarize" type="button" title="Summarize this article with AI">✦ Summarize</button><div class="view-switch" role="group" aria-label="Article view"><button id="reader-tab" class="active" aria-pressed="true">Reader</button><button id="site-tab" aria-pressed="false">Website</button></div></div></div>
+              <div id="summary" class="summary" role="region" aria-label="AI summary" aria-live="polite" hidden></div>
               <div id="reader" class="reader"></div>
               <div id="site-view" hidden><p class="hint">Some websites block embedding. If this is blank, use Reader or <a id="site-link" target="_blank" rel="noopener noreferrer">open the original ↗</a>.</p><iframe id="site-frame" class="iframe" title="Original article" sandbox="allow-scripts allow-forms allow-popups" referrerpolicy="no-referrer"></iframe></div>
             </section>
@@ -484,6 +496,44 @@
       }
       return element;
     }
+    function resetSummary() {
+      $('summary').hidden = true;
+      $('summary').replaceChildren();
+      $('summarize').disabled = false;
+      $('summarize').textContent = '✦ Summarize';
+    }
+    async function summarize() {
+      if (!selected) return;
+      const id = selected, current = requestId;
+      const box = $('summary'), button = $('summarize');
+      button.disabled = true;
+      button.textContent = 'Summarizing…';
+      box.hidden = false;
+      box.innerHTML = '<div class="loading">Reading the article and writing a summary…</div>';
+      try {
+        const data = await json(`/api/summary/${id}`);
+        if (current !== requestId) return;
+        const label = document.createElement('p');
+        label.className = 'summary-label';
+        label.textContent = 'AI summary';
+        const list = document.createElement('ul');
+        data.summary.split('\n').map(line => line.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean).forEach(line => {
+          const item = document.createElement('li');
+          item.textContent = line;
+          list.append(item);
+        });
+        const note = document.createElement('p');
+        note.className = 'summary-note';
+        note.textContent = `Written by Claude Haiku and may contain mistakes.${data.truncated ? ' The article was long, so only its first part was summarized.' : ''}`;
+        box.replaceChildren(label, list, note);
+        button.textContent = '✦ Summarized';
+      } catch (error) {
+        if (current !== requestId) return;
+        message(box, `Summary unavailable: ${error.message}`);
+        button.disabled = false;
+        button.textContent = '✦ Try again';
+      }
+    }
     async function openStory(story) {
       const id = String(story.objectID);
       selected = id;
@@ -511,6 +561,7 @@
       $('site-link').href = $('original').href;
       $('hn-link').href = `https://news.ycombinator.com/item?id=${id}`;
       $('comment-count').textContent = `${story.num_comments ?? 0} comments`;
+      resetSummary();
       $('reader').innerHTML = '<div class="loading">Preparing the article…</div>';
       $('comments').innerHTML = '<div class="loading">Loading the conversation…</div>';
       switchArticle('reader');
@@ -551,6 +602,7 @@
     }));
     $('search').addEventListener('input', renderStories);
       $('load-more').addEventListener('click', () => loadFeed(false));
+    $('summarize').addEventListener('click', summarize);
     $('reader-tab').addEventListener('click', () => switchArticle('reader'));
     $('site-tab').addEventListener('click', () => switchArticle('site'));
     $('close').addEventListener('click', () => {
